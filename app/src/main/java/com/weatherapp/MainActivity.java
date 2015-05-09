@@ -57,9 +57,7 @@ public class MainActivity extends ActionBarActivity {
         weatherELV = (ExpandableListView) findViewById(R.id.weatherELV);
 
 
-        if (!ServerRequest.isNetworkConnected(getApplicationContext())) {
-            displayMessage("No Internet Access, Please Connect Internet");
-        }
+
         getLocationAndWeatherInfo(savedInstanceState);
 
 
@@ -82,6 +80,12 @@ public class MainActivity extends ActionBarActivity {
     }
 
     public void getLocationAndWeatherInfo(Bundle savedInstanceState) {
+
+
+        if (!ServerRequest.isNetworkConnected(getApplicationContext())) {
+            displayMessage("No Internet Access, Please Connect Internet");
+            return;
+        }
 
         progressDialog = new ProgressDialog(MainActivity.this);
         progressDialog.setMessage("Please Wait,Current Location Weather Information Fetching");
@@ -129,6 +133,8 @@ public class MainActivity extends ActionBarActivity {
             displayMessage("Unable to get current location latitude and longitude");
             if (progressDialog != null)
                 progressDialog.dismiss();
+
+            return;
 
         }
 
