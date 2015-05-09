@@ -20,4 +20,16 @@
         android:textColor="@color/whiteColor" />
 
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:text="Refresh"
+        android:layout_gravity="right"
+        android:gravity="center"
+        android:id="@+id/refreshTV"
+        android:textStyle="bold"
+        android:layout_marginRight="5dp"
+        android:textColor="@color/whiteColor" />
+
+
 </android.support.v7.widget.Toolbar>
