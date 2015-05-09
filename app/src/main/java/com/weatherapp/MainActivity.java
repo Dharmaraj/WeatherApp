@@ -9,12 +9,13 @@ import android.content.Loader;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.DisplayMetrics;
 import android.view.View;
-import android.widget.ListView;
+import android.widget.ExpandableListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.weatherapp.adapter.WeatherAdapter;
+import com.weatherapp.adapter.WeatherExpandableAdapter;
 import com.weatherapp.model.SubWeather;
 import com.weatherapp.model.Weather;
 import com.weatherapp.utilities.CurrentLocationInformation;
@@ -25,10 +26,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 
 
@@ -39,7 +43,7 @@ public class MainActivity extends ActionBarActivity {
     private double longitude;
     private ProgressDialog progressDialog;
 
-    private ListView weatherInfoListView;
+    private ExpandableListView weatherELV;
     private Toolbar toolBar;
 
     @Override
@@ -47,10 +51,10 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
         //take references of controls
         toolBar = (Toolbar) findViewById(R.id.toolbar);
-        weatherInfoListView = (ListView) findViewById(R.id.weatherInfoListView);
-
+        weatherELV = (ExpandableListView) findViewById(R.id.weatherELV);
 
 
         if (!ServerRequest.isNetworkConnected(getApplicationContext())) {
@@ -64,9 +68,11 @@ public class MainActivity extends ActionBarActivity {
         refreshTV.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
                 getLocationAndWeatherInfo(savedInstanceState);
             }
         });
+
 
     }
 
@@ -90,11 +96,13 @@ public class MainActivity extends ActionBarActivity {
 
         if (lat != 0 && longitude != 0) {
 
+
             getLoaderManager().initLoader(0, savedInstanceState,
                     new LoaderManager.LoaderCallbacks<String>() {
 
                         @Override
                         public Loader<String> onCreateLoader(int id, Bundle args) {
+
                             return new WeatherInfoAsyncTaskLoader(MainActivity.this, lat, longitude);
                         }
 
@@ -111,6 +119,7 @@ public class MainActivity extends ActionBarActivity {
 
                         @Override
                         public void onLoaderReset(Loader<String> loader) {
+
                         }
                     }
             ).forceLoad();
@@ -129,7 +138,9 @@ public class MainActivity extends ActionBarActivity {
     public void displayRecordOnUI(String result) {
         try {
 
-            List<Weather> weatherList = new ArrayList<>();
+
+            Map<String, List<String>> weatherInfoCollections = new LinkedHashMap<>();
+            List<String> weatherHeadingList = new ArrayList<>();
 
             Weather weather = new Weather();
 
@@ -137,10 +148,26 @@ public class MainActivity extends ActionBarActivity {
 
             //Get sys Object JSON
             if (!jsonObject.isNull("sys")) {
+                List<String> weatherList = new ArrayList<>();
+                weatherHeadingList.add("Sunrise/Sunset Information");
+
                 JSONObject jsonObject1 = jsonObject.getJSONObject("sys");
                 weather.setCountry(jsonObject1.getString("country"));
                 weather.setSunrise(convertUnixTimeIntoCurrentTime(Long.parseLong(jsonObject1.getString("sunrise"))));
                 weather.setSunset(convertUnixTimeIntoCurrentTime(Long.parseLong(jsonObject1.getString("sunset"))));
+
+
+                //Get base
+                if (!jsonObject.isNull("base")) {
+                    weather.setBase(jsonObject.getString("base"));
+                }
+
+                weatherList.add("Country=;" + weather.getCountry());
+                weatherList.add("Sunrise=;" + weather.getSunrise());
+                weatherList.add("Sunset=;" + weather.getSunset());
+                weatherList.add("Base=;" + weather.getBase());
+
+                weatherInfoCollections.put("Sunrise/Sunset Information", weatherList);
             }
 
 
@@ -148,8 +175,13 @@ public class MainActivity extends ActionBarActivity {
             if (!jsonObject.isNull("weather")) {
                 JSONArray jsonArray = jsonObject.getJSONArray("weather");
 
+                List<String> weatherList = new ArrayList<>();
+                weatherHeadingList.add("Weather Information");
+
                 List<SubWeather> subWeatherList = new ArrayList<>();
                 for (int i = 0; i < jsonArray.length(); i++) {
+
+
                     SubWeather subWeather = new SubWeather();
 
                     JSONObject jsonObject2 = jsonArray.getJSONObject(i);
@@ -158,52 +190,117 @@ public class MainActivity extends ActionBarActivity {
                     subWeather.setIcon(jsonObject2.getString("icon"));
 
                     subWeatherList.add(subWeather);
+
+
                 }
 
                 weather.setSubWeatherList(subWeatherList);
+                for (SubWeather sWeather : weather.getSubWeatherList()) {
+                    weatherList.add("Type=;" + sWeather.getMainStr());
+                    weatherList.add("Description=;" + sWeather.getDescription());
+                }
+
+                weatherInfoCollections.put("Weather Information", weatherList);
+
 
             }
 
-            //Get base
-            if (!jsonObject.isNull("base")) {
-                weather.setBase(jsonObject.getString("base"));
-            }
 
             //Get Main Object
             if (!jsonObject.isNull("main")) {
+
+                List<String> weatherList = new ArrayList<>();
+                weatherHeadingList.add("Temperature Information");
+
                 JSONObject jsonObject2 = jsonObject.getJSONObject("main");
-                weather.setTemp((Double.parseDouble(jsonObject2.getString("temp")) - 273.15) + " C");
-                weather.setTempMin((Double.parseDouble(jsonObject2.getString("temp_min")) - 273.15) + " C");
-                weather.setTempMax((Double.parseDouble(jsonObject2.getString("temp_max")) - 273.15) + " C");
+
+                DecimalFormat decimalFormat = new DecimalFormat("##.##");
+
+                double temp = Double.parseDouble(decimalFormat.format
+                        (Double.parseDouble(jsonObject2.getString("temp")) - 273.15));
+
+                double tempMin = Double.parseDouble(decimalFormat.format
+                        (Double.parseDouble(jsonObject2.getString("temp_min")) - 273.15));
+
+                double tempMax = Double.parseDouble(decimalFormat.format
+                        (Double.parseDouble(jsonObject2.getString("temp_max")) - 273.15));
+
+                weather.setTemp(temp + " C");
+                weather.setTempMin(tempMin + " C");
+                weather.setTempMax(tempMax + " C");
                 weather.setPressure(jsonObject2.getString("pressure") + " hPa");
                 weather.setSeaLevel(jsonObject2.getString("sea_level") + " hPa");
                 weather.setGrndLevel(jsonObject2.getString("grnd_level") + " hPa");
                 weather.setHumidity(jsonObject2.getString("humidity") + " %");
+
+                weatherList.add("Temp=;" + weather.getTemp());
+                weatherList.add("Minimum Temp=;" + weather.getTempMin());
+                weatherList.add("Maximum Temp=;" + weather.getTempMax());
+                weatherList.add("Pressure=;" + weather.getPressure());
+                weatherList.add("Pressure on Sea Level=;" + weather.getSeaLevel());
+                weatherList.add("Pressure on Ground Level=;" + weather.getGrndLevel());
+                weatherList.add("Humidity=;" + weather.getHumidity());
+
+                weatherInfoCollections.put("Temperature Information", weatherList);
             }
 
             //Get Wind Object
             if (!jsonObject.isNull("wind")) {
+
+                List<String> weatherList = new ArrayList<>();
+                weatherHeadingList.add("Wind Information");
+
                 JSONObject jsonObject3 = jsonObject.getJSONObject("wind");
                 weather.setWindSpeed(jsonObject3.getString("speed") + " mps");
                 weather.setWindDeg(jsonObject3.getString("deg") + " deg");
+
+                weatherList.add("Speed=;" + weather.getWindSpeed());
+                weatherList.add("Direction=;" + weather.getWindDeg());
+
+                weatherInfoCollections.put("Wind Information", weatherList);
+
+
             }
+
 
             //Get Clouds Object
             if (!jsonObject.isNull("clouds")) {
+                List<String> weatherList = new ArrayList<>();
+                weatherHeadingList.add("Clouds Information");
+
                 JSONObject jsonObject4 = jsonObject.getJSONObject("clouds");
                 weather.setCloudsAll(jsonObject4.getString("all") + " %");
+
+                weatherList.add("Cloudiness=;" + weather.getCloudsAll());
+                weatherInfoCollections.put("Clouds Information", weatherList);
+
             }
 
             //Get Rain Object
             if (!jsonObject.isNull("rain")) {
+
+                List<String> weatherList = new ArrayList<>();
+                weatherHeadingList.add("Rain Information");
+
                 JSONObject jsonObject5 = jsonObject.getJSONObject("rain");
                 weather.setRain3H(jsonObject5.getString("3h") + " mm");
+
+                weatherList.add("Precipitation volume for last 3 hours=;" + weather.getRain3H());
+                weatherInfoCollections.put("Rain Information", weatherList);
+
             }
 
             //Get Snow Object
             if (!jsonObject.isNull("snow")) {
+
+                List<String> weatherList = new ArrayList<>();
+                weatherHeadingList.add("Snow Information");
+
                 JSONObject jsonObject6 = jsonObject.getJSONObject("snow");
                 weather.setSnow3H(jsonObject6.getString("3h") + " mm");
+
+                weatherList.add("Precipitation volume for last 3 hours=;" + weather.getSnow3H());
+                weatherInfoCollections.put("Snow Information", weatherList);
             }
 
             //Get City Name, Data receive and City id
@@ -217,19 +314,44 @@ public class MainActivity extends ActionBarActivity {
                 weather.setCityName(jsonObject.getString("name"));
             }
 
-            //Add Weather into List
-            weatherList.add(weather);
 
             TextView toolbarTitle = (TextView) toolBar.findViewById(R.id.toolbarTitle);
             toolbarTitle.setText(weather.getCityName());
 
-            //Initialize Custom ArrayAdapter and set on ListView
-            WeatherAdapter weatherAdapter = new WeatherAdapter(this, R.layout.weather_info_list, weatherList);
-            weatherInfoListView.setAdapter(weatherAdapter);
+
+            //Set Group Indicator into Right side of ExpandableListView
+            DisplayMetrics metrics = new DisplayMetrics();
+            getWindowManager().getDefaultDisplay().getMetrics(metrics);
+            int width = metrics.widthPixels;
+
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                weatherELV.setIndicatorBounds(width - convertDPintoPixel(40), width - convertDPintoPixel(10));
+            } else {
+
+                weatherELV.setIndicatorBoundsRelative(width - convertDPintoPixel(40), width - convertDPintoPixel(10));
+
+            }
+
+            //Initialize Custom BaseExpandableAdapter and set on ExpandableListView
+            WeatherExpandableAdapter weatherExpandableAdapter = new WeatherExpandableAdapter
+                    (MainActivity.this, weatherHeadingList, weatherInfoCollections);
+            weatherELV.setAdapter(weatherExpandableAdapter);
+
+            weatherELV.expandGroup(0);
+
 
         } catch (JSONException e) {
             e.printStackTrace();
+            displayMessage("OpenWeather API Server is busy, Please Refresh again");
         }
+    }
+
+
+    public int convertDPintoPixel(float pixels) {
+        // Get the screen's density scale
+        final float scale = getResources().getDisplayMetrics().density;
+        // Convert the dps to pixels, based on density scale
+        return (int) (pixels * scale + 0.5f);
     }
 
 
@@ -258,13 +380,16 @@ public class MainActivity extends ActionBarActivity {
 
     //Convert UNIX time into current time system
     public String convertUnixTimeIntoCurrentTime(long unixSeconds) {
-        Date date = new Date(unixSeconds * 1000L); // *1000 is to convert seconds to milliseconds
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z"); // the format of your date
-        sdf.setTimeZone(TimeZone.getDefault()); // give a timezone reference for formating (see comment at the bottom
+        // convert seconds to milliseconds
+        Date date = new Date(unixSeconds * 1000L);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
+        //give current timeZone
+        sdf.setTimeZone(TimeZone.getDefault());
         String formattedDate = sdf.format(date);
         System.out.println(formattedDate);
         return formattedDate;
     }
+
 
 }
 

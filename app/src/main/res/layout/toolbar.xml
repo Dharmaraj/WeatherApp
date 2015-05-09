@@ -16,7 +16,7 @@
         android:singleLine="true"
         android:id="@+id/toolbarTitle"
         android:textStyle="bold"
-        android:textAppearance="@style/Base.TextAppearance.AppCompat.Headline"
+        android:textAppearance="@style/Base.TextAppearance.Widget.AppCompat.Toolbar.Title"
         android:textColor="@color/whiteColor" />
 
 

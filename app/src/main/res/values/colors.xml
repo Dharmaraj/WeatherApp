@@ -3,7 +3,9 @@
 
     <color name="blackColor">#000000</color>
     <color name="whiteColor">#ffffff</color>
-    <color name="actionBarBgColor">#636363</color>
-    <color name="statusBarBgColor">#535353</color>
+    <color name="actionBarBgColor">#434343</color>
+    <color name="statusBarBgColor">#333333</color>
+
+    <color name="listViewHeaderBgColor">#636363</color>
     
 </resources>
