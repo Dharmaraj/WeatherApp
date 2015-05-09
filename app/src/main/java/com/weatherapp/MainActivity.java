@@ -1,7 +1,10 @@
 package com.weatherapp;
 
+import android.app.LoaderManager;
 import android.app.ProgressDialog;
-import android.os.AsyncTask;
+import android.content.AsyncTaskLoader;
+import android.content.Context;
+import android.content.Loader;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.widget.Toast;
@@ -16,53 +19,74 @@ public class MainActivity extends ActionBarActivity {
 
     double lat;
     double longitude;
+    ProgressDialog progressDialog;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        if (!ServerRequest.isNetworkConnected(getApplicationContext())) {
+            displayMessage("No Internet Access, Please Connect Internet");
+        }
+        getLocationAndWeatherInfo(savedInstanceState);
+    }
+
+    //display Toast message
+    public void displayMessage(String msg) {
+        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+    }
+
+    public void getLocationAndWeatherInfo(Bundle savedInstanceState) {
+
+        progressDialog = new ProgressDialog(MainActivity.this);
+        progressDialog.setMessage("Please Wait,Current Location Weather Information Fetching");
+        progressDialog.setCancelable(true);
+        progressDialog.show();
 
         CurrentLocationInformation currentLocationInformation = new CurrentLocationInformation(getApplicationContext());
         if (currentLocationInformation.canGetCurrentLocation()) {
             lat = currentLocationInformation.getCurrentLatitude();
             longitude = currentLocationInformation.getCurrentLongitude();
-            Toast.makeText(getApplicationContext(), "Lat=" + lat + ",Long=" + longitude, Toast.LENGTH_LONG).show();
         }
 
-        new MyAsyncTask().execute();
+        if (lat != 0 && longitude != 0) {
 
-    }
+            getLoaderManager().initLoader(0, savedInstanceState,
+                    new LoaderManager.LoaderCallbacks<String>() {
+
+                        @Override
+                        public Loader<String> onCreateLoader(int id, Bundle args) {
+                            return new WeatherInfoAsyncTaskLoader(MainActivity.this, lat, longitude);
+                        }
+
+                        @Override
+                        public void onLoadFinished(Loader<String> loader, String result) {
+
+                            displayRecordOnUI(result);
+
+                            if (progressDialog != null)
+                                progressDialog.dismiss();
+
+                        }
 
 
-    private class MyAsyncTask extends AsyncTask<Void, Void, String> {
+                        @Override
+                        public void onLoaderReset(Loader<String> loader) {
+                        }
+                    }
+            ).forceLoad();
 
 
-        ProgressDialog progressDialog;
-
-        @Override
-        protected void onPreExecute() {
-
-            progressDialog = new ProgressDialog(MainActivity.this);
-            progressDialog.setMessage("Please Wait, Weather Information Fetching");
-            progressDialog.setCancelable(true);
-
-
-        }
-
-        @Override
-        protected String doInBackground(Void... paramsArg) {
-            return ServerRequest.
-                    requestGetHttp(HttpPath.openWeatherPath + "?lat=" + lat + "&lon=" + longitude);
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-
-            displayRecordOnUI(result);
+        } else {
+            displayMessage("Unable to get current location latitude and longitude");
             if (progressDialog != null)
                 progressDialog.dismiss();
+
         }
+
+
     }
 
     public void displayRecordOnUI(String result) {
@@ -91,4 +115,28 @@ public class MainActivity extends ActionBarActivity {
 //
 //        return super.onOptionsItemSelected(item);
 //    }
+
+
 }
+
+
+//Getting Weather Information using AsyncTaskLoader
+class WeatherInfoAsyncTaskLoader extends AsyncTaskLoader<String> {
+
+    double lat;
+    double lon;
+
+    public WeatherInfoAsyncTaskLoader(Context context, double lat, double lon) {
+        super(context);
+        this.lat = lat;
+        this.lon = lon;
+    }
+
+
+    @Override
+    public String loadInBackground() {
+        return ServerRequest.
+                requestGetHttp(HttpPath.openWeatherPath + "?lat=" + lat + "&lon=" + lon);
+    }
+}
+
